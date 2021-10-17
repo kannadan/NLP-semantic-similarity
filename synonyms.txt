@@ -160,7 +160,7 @@ Right - correct, accurate, factual, true, good, just, honest, upright, lawful, m
 
 Run - race, speed, hurry, hasten, sprint, dash, rush, escape, elope, flee
 
-Say/Tell - inform, notify, advise, relate, recount, narrate, explain, reveal, disclose, divulge, declare, command, order, bid, enlighten, instruct, insist, teach, train, direct, issue, remark, converse, speak, affirm, suppose, utter, negate, express, verbalize, voice, articulate, pronounce, deliver, convey, impart, assert, state, allege, mutter, mumble, whisper, sigh, exclaim, yell, sing, yelp, snarl, hiss, grunt, snort, roar, bellow, thunder, boom, scream, shriek, screech, squawk, whine, philosophize, stammer, stutter, lisp, drawl, jabber, protest, announce, swear, vow, content, assure, deny, dispute
+Say - tell, inform, notify, advise, relate, recount, narrate, explain, reveal, disclose, divulge, declare, command, order, bid, enlighten, instruct, insist, teach, train, direct, issue, remark, converse, speak, affirm, suppose, utter, negate, express, verbalize, voice, articulate, pronounce, deliver, convey, impart, assert, state, allege, mutter, mumble, whisper, sigh, exclaim, yell, sing, yelp, snarl, hiss, grunt, snort, roar, bellow, thunder, boom, scream, shriek, screech, squawk, whine, philosophize, stammer, stutter, lisp, drawl, jabber, protest, announce, swear, vow, content, assure, deny, dispute
 
 Scared - afraid, frightened, alarmed, terrified, panicked, fearful, unnerved, insecure, timid, shy, skittish, jumpy, disquieted, worried, vexed, troubled, disturbed, horrified, terrorized, shocked, petrified, haunted, timorous, shrinking, tremulous, stupefied, paralyzed, stunned, apprehensive
 
