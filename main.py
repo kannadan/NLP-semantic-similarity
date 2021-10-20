@@ -1,10 +1,14 @@
 from nltk.corpus import wordnet as wn
+from nltk.corpus import brown
+from gensim.models import Word2Vec
+from scipy import spatial
 import csv
 import numpy
 
 word_list = []
 synonyms = {}
 wordnet_results = {}
+word2vec_results = {}
 
 def Read_Synonyms():
     with open('synonyms.txt') as f:        
@@ -42,6 +46,27 @@ def Calculate_Wordnet_Similarity():
                 'result': value
             })
 
+def Word2Vec_Similarity():
+    # print("Start w2v")
+    # model = Word2Vec(brown.sents(), min_count=1)    
+    # print("w2v model done")
+    for word in word_list:
+        word2vec_results[word] = []       
+        # print(f'Word: {word}, synset: {main_word}')
+
+        similar = synonyms[word]               
+        model = Word2Vec([[word], similar], min_count=1)    
+        word_Vec = model.wv[word]        
+        for synonym in similar:
+            # print(model.wv.similarity(word, synonym))
+            res = spatial.distance.cosine(word_Vec, model.wv[synonym])            
+            word2vec_results[word].append({
+                'word': synonym,
+                'result': res
+            })
+
+
+
 def get_synset(word, word_type=None):
     if word_type != None:
         synset = wn.synsets(word, word_type)
@@ -65,17 +90,11 @@ def create_table(name, rows):
         for row in rows:            
             writer.writerow(row)
 
-
-
-if __name__ == "__main__":
-    Read_Synonyms()
-    Calculate_Wordnet_Similarity()    
-
-    # task1 results
+def get_results_list(result_dict):    
     table1_headers = ["Word", "Synonyms", "Average score", "StD"]
     table1 = [table1_headers]
     for word in word_list:
-        results = wordnet_results[word]
+        results = result_dict[word]
         if len(results) == 0:
             continue
         row = [word]
@@ -90,4 +109,18 @@ if __name__ == "__main__":
         std = numpy.std(result_list)
         row.append(std)
         table1.append(row)
+    return table1
+
+
+if __name__ == "__main__":
+    Read_Synonyms()
+    Calculate_Wordnet_Similarity()    
+
+    # task1 results
+    table1 = get_results_list(wordnet_results)
     create_table("wup_similarity.csv", table1)
+
+    # Task 2
+    Word2Vec_Similarity()
+    table2 = get_results_list(word2vec_results)
+    create_table("word2vec_similarity.csv", table2)    
