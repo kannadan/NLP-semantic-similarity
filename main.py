@@ -6,6 +6,7 @@ from scipy import spatial
 import csv
 import numpy
 import pickle
+import numpy as np
 
 word_list = []
 synonyms = {}
@@ -282,10 +283,23 @@ def Popularity_Similarity():
     for word in popularity_results.keys():
         score = popularity_results[word]["score"]
         popularity_results[word]["synonyms"] = sorted(popularity_results[word]["synonyms"], key=lambda a: a["abs"])
+        x = []
+        y = []
+        for syn in popularity_results[word]["synonyms"]:
+            x.append(syn["result"])
+            y.append(syn["abs"])
+        if len(x) == len(y) and len(y) > 1:
+            x = np.array(x)
+            y = np.array(y)
+            r = np.corrcoef(x,y)
+            # print(r)
+            popularity_results[word]["correlation"] = r[0,1]
+        else:
+            popularity_results[word]["correlation"] = 0
     return
 
 def get_popularity_table():
-    table1_headers = ["Word", "Synonyms", "Average score", "StD"]
+    table1_headers = ["Word", "Synonyms", "Average score", "StD", "Pearson correlation"] 
     table1 = [table1_headers]
     for word in popularity_results.keys():
         results = popularity_results[word]
@@ -302,6 +316,7 @@ def get_popularity_table():
         row.append(average)
         std = numpy.std(result_list)
         row.append(std)
+        row.append(results["correlation"])
         table1.append(row)
     return table1
 
