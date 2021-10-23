@@ -5,12 +5,14 @@ from gensim.models import Word2Vec
 from scipy import spatial
 import csv
 import numpy
+import pickle
 
 word_list = []
 synonyms = {}
 wordnet_results = {}
 word2vec_results = {}
 adVerb_result = {}
+popularity_results = {}
 
 def Read_Synonyms():
     with open('synonyms.txt') as f:
@@ -246,22 +248,82 @@ def Adverb_Similarity():
     print(f'Missed main: {missed_main}, synonyms: {missed_synonym}')
     return
 
+def get_popularity(corpus, word):
+    score = corpus.count(word)
+    return score
+
+def Popularity_Similarity():
+    #uses wup scoring for similarity
+    words = brown.words()
+    save_data = True
+    try:
+        a_file = open("popularity_data.pkl", "rb")
+        output = pickle.load(a_file)
+        global popularity_results
+        popularity_results = output
+        save_data = False
+    except:
+        print("no data found")
+
+    if save_data:
+        for word in wordnet_results.keys():
+            popularity_results[word] = {"score": 0, "synonyms": []}
+            popularity_results[word]["score"] = get_popularity(words, word)
+            for synonyms in wordnet_results[word]:
+                synonyms["score"] = get_popularity(words, synonyms["word"])
+                synonyms["abs"] = abs(synonyms["score"] - popularity_results[word]["score"])
+                popularity_results[word]["synonyms"].append(synonyms)
+                print(popularity_results[word]["score"])
+                print(synonyms)
+        # delete pkl to recount scores
+        a_file = open("popularity_data.pkl", "wb")
+        pickle.dump(popularity_results, a_file)
+        a_file.close()
+    for word in popularity_results.keys():
+        score = popularity_results[word]["score"]
+        popularity_results[word]["synonyms"] = sorted(popularity_results[word]["synonyms"], key=lambda a: a["abs"])
+    return
+
+def get_popularity_table():
+    table1_headers = ["Word", "Synonyms", "Average score", "StD"]
+    table1 = [table1_headers]
+    for word in popularity_results.keys():
+        results = popularity_results[word]
+        if len(results["synonyms"]) == 0:
+            continue
+        row = [f'({word} - {results["score"]}']
+        synonym_list = ""
+        result_list = []
+        for synonym in results["synonyms"]:
+            synonym_list += f'{synonym["word"]} ({synonym["result"]} - {synonym["score"]}), '
+            result_list.append(synonym["result"])
+        row.append(synonym_list)
+        average = sum(result_list) / len(result_list)
+        row.append(average)
+        std = numpy.std(result_list)
+        row.append(std)
+        table1.append(row)
+    return table1
 
 if __name__ == "__main__":
     Read_Synonyms()
     Calculate_Wordnet_Similarity()
 
-    # task1 results
-    table1 = get_results_list(wordnet_results)
-    create_table("wup_similarity.csv", table1)
+    # # task1 results
+    # table1 = get_results_list(wordnet_results)
+    # create_table("wup_similarity.csv", table1)
 
-    # Task 2
-    Word2Vec_Similarity()
-    table2 = get_results_list(word2vec_results)
-    create_table("word2vec_similarity.csv", table2)
+    # # Task 2
+    # Word2Vec_Similarity()
+    # table2 = get_results_list(word2vec_results)
+    # create_table("word2vec_similarity.csv", table2)
 
-    # Task 3
-    Adverb_Similarity()
-    table3 = get_adverb_table(adVerb_result)
-    create_table("adverbs_task3.csv", table3)
+    # # Task 3
+    # Adverb_Similarity()
+    # table3 = get_adverb_table(adVerb_result)
+    # create_table("adverbs_task3.csv", table3)
 
+    # Task 4
+    Popularity_Similarity()
+    table4 = get_popularity_table()
+    create_table("popularity_table_task4.csv", table4)
