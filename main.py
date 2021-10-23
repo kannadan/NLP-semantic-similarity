@@ -14,6 +14,8 @@ wordnet_results = {}
 word2vec_results = {}
 adVerb_result = {}
 popularity_results = {}
+antonyms = {}
+antonym_results = {}
 
 def Read_Synonyms():
     with open('synonyms.txt') as f:
@@ -30,6 +32,20 @@ def Read_Synonyms():
             synoms[len(synoms) - 1] = synoms[len(synoms) - 1].strip()
 
             synonyms[words[0]] = synoms
+    return
+
+def Read_Antonyms():
+    with open('antonyms.txt') as f:
+        for line in f.readlines():
+            words = line.split("-")
+            if len(words) < 2:
+                continue
+            # Get origin word
+            words[0] = words[0].replace(" ", "").lower()
+            # Get related antonym
+            words[1] = words[1].replace(" ", "").lower().strip()
+            words[1] = words[1].split(",")[0]
+            antonyms[words[0]] = words[1]
     return
 
 def Calculate_Wordnet_Similarity():
@@ -50,6 +66,23 @@ def Calculate_Wordnet_Similarity():
                 'word': synonym,
                 'result': value
             })
+
+def Calculate_Wordnet_Similarity_Antonyms():
+    for word in antonyms.keys():
+        main_word = get_synset(word)
+        # print(f'Word: {word}, synset: {main_word}')
+        if type(main_word) is int:
+            continue
+        counter = antonyms[word]
+        word_type = main_word.name().split(".")[1]
+        comparison = get_synset(counter, word_type)
+        if type(comparison) is int:
+            continue
+        value = main_word.wup_similarity(comparison)
+        antonym_results[word] = {
+            'word': counter,
+            'result': value
+        }
 
 def Word2Vec_Similarity():
     # print("Start w2v")
@@ -338,7 +371,12 @@ if __name__ == "__main__":
     # table3 = get_adverb_table(adVerb_result)
     # create_table("adverbs_task3.csv", table3)
 
-    # Task 4
-    Popularity_Similarity()
-    table4 = get_popularity_table()
-    create_table("popularity_table_task4.csv", table4)
+    # # Task 4
+    # Popularity_Similarity()
+    # table4 = get_popularity_table()
+    # create_table("popularity_table_task4.csv", table4)
+
+    # Task 5
+    Read_Antonyms()
+    Calculate_Wordnet_Similarity_Antonyms()
+    print(antonym_results)
