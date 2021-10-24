@@ -23,6 +23,13 @@ antonym_pop_results = {}
 antonym_wn_sorted = []
 antonym_w2v_sorted = []
 
+duos = {}
+duo_results = {}
+duo_results_w2v = {}
+duo_pop_results = {}
+duo_wn_sorted = []
+duo_w2v_sorted = []
+
 def Read_Synonyms():
     with open('synonyms.txt') as f:
         for line in f.readlines():
@@ -52,6 +59,20 @@ def Read_Antonyms():
             words[1] = words[1].replace(" ", "").lower().strip()
             words[1] = words[1].split(",")[0]
             antonyms[words[0]] = words[1]
+    return
+
+def Read_Duos():
+    with open('Duos.txt') as f:
+        for line in f.readlines():
+            words = line.split("-")
+            if len(words) < 2:
+                continue
+            # Get origin word
+            words[0] = words[0].replace(" ", "").lower()
+            # Get related antonym
+            words[1] = words[1].replace(" ", "").lower().strip()
+            words[1] = words[1].split(",")[0]
+            duos[words[0]] = words[1]
     return
 
 def Calculate_Wordnet_Similarity():
@@ -94,6 +115,27 @@ def Calculate_Wordnet_Similarity_Antonyms():
             'result': value
         }
 
+def Calculate_Wordnet_Similarity_Duos():
+    for word in duos.keys():
+        counter = duos[word]
+        duo_results[word] = {
+            'word': counter,
+            'result': None
+        }
+        main_word = get_synset(word)
+        # print(f'Word: {word}, synset: {main_word}')
+        if type(main_word) is int:
+            continue
+        word_type = main_word.name().split(".")[1]
+        comparison = get_synset(counter, word_type)
+        if type(comparison) is int:
+            continue
+        value = main_word.wup_similarity(comparison)
+        duo_results[word] = {
+            'word': counter,
+            'result': value
+        }
+
 def Word2Vec_Similarity():
     # print("Start w2v")
     # model = Word2Vec(brown.sents(), min_count=1)
@@ -129,6 +171,21 @@ def Word2Vec_Similarity_Antonyms():
             'result': res
         }
 
+def Word2Vec_Similarity_Duos():
+    word_set = []
+    for word in duos.keys():
+        word_set.append([word])
+        word_set.append([duos[word]])
+    model = Word2Vec(word_set, min_count=1)
+    for word in duos.keys():
+        second = duos[word]
+        word_Vec = model.wv[word]
+        res = spatial.distance.cosine(word_Vec, model.wv[second])
+        duo_results_w2v[word] = {
+            'word': second,
+            'result': res
+        }
+
 def Antonym_Results_Processing():
     wordnet = []
     w2v = []
@@ -148,7 +205,24 @@ def Antonym_Results_Processing():
     antonym_results["kurtosis"] = kurtosis(wordnet)
     antonym_results_w2v["kurtosis"] = kurtosis(w2v)
 
-
+def Duos_Results_Processing():
+    wordnet = []
+    w2v = []
+    for word in duos.keys():
+        wordnet_res = duo_results[word]
+        w2v_res = duo_results_w2v[word]
+        w2v.append(w2v_res["result"])
+        if wordnet_res["result"] is None:
+            continue
+        wordnet.append(wordnet_res["result"])
+    duo_results["average"] = np.average(wordnet)
+    duo_results_w2v["average"] = np.average(w2v)
+    duo_results["std"] = np.std(wordnet)
+    duo_results_w2v["std"] = np.std(w2v)
+    duo_results["skew"] = skew(wordnet)
+    duo_results_w2v["skew"] = skew(w2v)
+    duo_results["kurtosis"] = kurtosis(wordnet)
+    duo_results_w2v["kurtosis"] = kurtosis(w2v)
 
 
 def get_synset(word, word_type=None):
@@ -401,6 +475,30 @@ def Antonym_Popularity():
         pickle.dump(antonym_pop_results, a_file)
         a_file.close()
 
+def Duo_Popularity():
+    words = brown.words()
+    save_data = True
+    try:
+        a_file = open("Duo_popularity_data.pkl", "rb")
+        output = pickle.load(a_file)
+        global duo_pop_results
+        duo_pop_results = output
+        save_data = False
+    except:
+        print("no data found")
+    if save_data:
+        for word in duos.keys():
+            duo_pop_results[word] = {"score": 0, "partner": {"score": 0, "partner": duos[word], "abs": None}}
+            duo_pop_results[word]["score"] = get_popularity(words, word)
+            duo_pop_results[word]["partner"]["score"] = get_popularity(words, duos[word])
+            duo_pop_results[word]["partner"]["abs"] = abs(duo_pop_results[word]["partner"]["score"] - duo_pop_results[word]["score"])
+            print(duo_pop_results[word]["score"])
+            print(duo_pop_results[word]["partner"])
+        # delete pkl to recount scores
+        a_file = open("Duo_popularity_data.pkl", "wb")
+        pickle.dump(duo_pop_results, a_file)
+        a_file.close()
+
 def Antonym_Popular_Processed():
     w2v = []
     wordnet = []
@@ -455,6 +553,59 @@ def Antonym_Popular_Processed():
     else:
         antonym_pop_results["correlation_w2v"] = 0
     
+def Duo_Popular_Processed():
+    w2v = []
+    wordnet = []
+    for word in duos.keys():
+        wn = duo_results[word]
+        vec = duo_results_w2v[word]
+        pop = duo_pop_results[word]
+        temp = wn
+        temp["score_main"] = pop["score"]
+        temp["score"] = pop["partner"]["score"]
+        temp["main"] = word
+        temp["abs"] = pop["partner"]["abs"]
+        if temp["result"] is not None:
+            wordnet.append(temp)
+        temp = vec
+        temp["score_main"] = pop["score"]
+        temp["score"] = pop["partner"]["score"]
+        temp["main"] = word
+        temp["abs"] = pop["partner"]["abs"]
+        if temp["result"] is not None:
+            w2v.append(temp)
+    wordnet = sorted(wordnet, key=lambda a: a["abs"])
+    w2v = sorted(w2v, key=lambda a: a["abs"])
+    global duo_wn_sorted
+    global duo_w2v_sorted
+    duo_wn_sorted = wordnet
+    duo_w2v_sorted = w2v
+    x = []
+    y = []
+    for item in wordnet:
+        x.append(item["result"])
+        y.append(item["abs"])
+    if len(x) == len(y) and len(y) > 1:
+        x = np.array(x)
+        y = np.array(y)
+        r = np.corrcoef(x,y)
+        # print(r)
+        duo_pop_results["correlation_wn"] = r[0,1]
+    else:
+        duo_pop_results["correlation_wn"] = 0
+    x = []
+    y = []
+    for item in w2v:
+        x.append(item["result"])
+        y.append(item["abs"])
+    if len(x) == len(y) and len(y) > 1:
+        x = np.array(x)
+        y = np.array(y)
+        r = np.corrcoef(x,y)
+        # print(r)
+        duo_pop_results["correlation_w2v"] = r[0,1]
+    else:
+        duo_pop_results["correlation_w2v"] = 0
     
 
 def get_popularity_table():
@@ -495,6 +646,22 @@ def Get_Antonym_table():
         table1.append(row)
     return table1
 
+def Get_Duo_table():
+    table1 = [["Average wup", duo_results["average"], "Std wup", duo_results["std"], "Skew wup", duo_results["skew"], "Kurtosis wup", duo_results["kurtosis"]]]
+    table1.append(["Average w2v", duo_results_w2v["average"], "Std w2v", duo_results_w2v["std"], "Skew w2v", duo_results_w2v["skew"], "Kurtosis w2v", duo_results_w2v["kurtosis"]])
+    table1_headers = ["Word", "duo", "Similarity wup", "Similarity w2v"] 
+    table1.append(table1_headers)
+    for word in duos.keys():
+        results1 = duo_results[word]["result"]
+        results2 = duo_results_w2v[word]["result"]
+        partner = duos[word]
+        row = [word]
+        row.append(partner)
+        row.append(results1)
+        row.append(results2)
+        table1.append(row)
+    return table1
+
 def Antonym_Pop_Table():
     table1 = [["Pearson correlation wup", antonym_pop_results["correlation_wn"]]]
     table1_headers = ["Word", "Popularity", "Antonym", "Popularity", "Abs", "Similarity wup"] 
@@ -521,28 +688,54 @@ def Antonym_Pop_Table():
         table2.append(row)
     return table1, table2
 
+def Duo_Pop_Table():
+    table1 = [["Pearson correlation wup", duo_pop_results["correlation_wn"]]]
+    table1_headers = ["Word", "Popularity", "Duo", "Popularity", "Abs", "Similarity wup"] 
+    table1.append(table1_headers)
+    for item in duo_wn_sorted:
+        row = [item["main"]]
+        row.append(item["score_main"])
+        row.append(item["word"])
+        row.append (item["score"])
+        row.append(item["abs"])
+        row.append(item["result"])
+        table1.append(row)
+    table2 = [["Pearson correlation w2v", duo_pop_results["correlation_w2v"]]]
+    table2_headers = ["Word", "Popularity", "Duo", "Popularity", "Abs", "Similarity w2v"] 
+    table2.append(table1_headers)
+    for item in duo_w2v_sorted:
+        row = [item["main"]]
+        row.append(item["score_main"])
+        row.append(item["word"])
+        row.append (item["score"])
+        row.append(item["abs"])
+        row.append(item["result"])
+        # print(item["main"])
+        table2.append(row)
+    return table1, table2
+
 if __name__ == "__main__":
     Read_Synonyms()
     Calculate_Wordnet_Similarity()
 
-    # # task1 results
-    # table1 = get_results_list(wordnet_results)
-    # create_table("wup_similarity.csv", table1)
+    # task1 results
+    table1 = get_results_list(wordnet_results)
+    create_table("wup_similarity.csv", table1)
 
-    # # Task 2
-    # Word2Vec_Similarity()
-    # table2 = get_results_list(word2vec_results)
-    # create_table("word2vec_similarity.csv", table2)
+    # Task 2
+    Word2Vec_Similarity()
+    table2 = get_results_list(word2vec_results)
+    create_table("word2vec_similarity.csv", table2)
 
-    # # Task 3
-    # Adverb_Similarity()
-    # table3 = get_adverb_table(adVerb_result)
-    # create_table("adverbs_task3.csv", table3)
+    # Task 3
+    Adverb_Similarity()
+    table3 = get_adverb_table(adVerb_result)
+    create_table("adverbs_task3.csv", table3)
 
-    # # Task 4
-    # Popularity_Similarity()
-    # table4 = get_popularity_table()
-    # create_table("popularity_table_task4.csv", table4)
+    # Task 4
+    Popularity_Similarity()
+    table4 = get_popularity_table()
+    create_table("popularity_table_task4.csv", table4)
 
     # Task 5
     Read_Antonyms()
@@ -558,3 +751,17 @@ if __name__ == "__main__":
     (table6, table7) = Antonym_Pop_Table()
     create_table("antonym_pop_wn_task6.csv", table6)
     create_table("antonym_pop_w2v_task6.csv", table7)
+
+    # Task 8
+    Read_Duos()
+    Calculate_Wordnet_Similarity_Duos()
+    Word2Vec_Similarity_Duos()
+    Duos_Results_Processing()
+    table9 = Get_Duo_table()
+    create_table("Duos_table_task8.csv", table9)
+
+    Duo_Popularity()
+    Duo_Popular_Processed()
+    (table10, table11) = Duo_Pop_Table()
+    create_table("duo_pop_wn_task8.csv", table10)
+    create_table("duo_pop_w2v_task8.csv", table11)
