@@ -7,6 +7,8 @@ import csv
 import numpy
 import pickle
 import numpy as np
+from scipy.stats import kurtosis
+from scipy.stats import skew
 
 word_list = []
 synonyms = {}
@@ -16,6 +18,7 @@ adVerb_result = {}
 popularity_results = {}
 antonyms = {}
 antonym_results = {}
+antonym_results_w2v = {}
 
 def Read_Synonyms():
     with open('synonyms.txt') as f:
@@ -69,11 +72,15 @@ def Calculate_Wordnet_Similarity():
 
 def Calculate_Wordnet_Similarity_Antonyms():
     for word in antonyms.keys():
+        counter = antonyms[word]
+        antonym_results[word] = {
+            'word': counter,
+            'result': None
+        }
         main_word = get_synset(word)
         # print(f'Word: {word}, synset: {main_word}')
         if type(main_word) is int:
             continue
-        counter = antonyms[word]
         word_type = main_word.name().split(".")[1]
         comparison = get_synset(counter, word_type)
         if type(comparison) is int:
@@ -102,6 +109,42 @@ def Word2Vec_Similarity():
                 'word': synonym,
                 'result': res
             })
+
+def Word2Vec_Similarity_Antonyms():
+    word_set = []
+    for word in antonyms.keys():
+        word_set.append([word])
+        word_set.append([antonyms[word]])
+    model = Word2Vec(word_set, min_count=1)
+    for word in antonyms.keys():
+        antonym = antonyms[word]
+        # model = Word2Vec([[word], [antonym]], min_count=1)
+        word_Vec = model.wv[word]
+        res = spatial.distance.cosine(word_Vec, model.wv[antonym])
+        antonym_results_w2v[word] = {
+            'word': antonym,
+            'result': res
+        }
+
+def Antonym_Results_Processing():
+    wordnet = []
+    w2v = []
+    for word in antonyms.keys():
+        wordnet_res = antonym_results[word]
+        w2v_res = antonym_results_w2v[word]
+        w2v.append(w2v_res["result"])
+        if wordnet_res["result"] is None:
+            continue
+        wordnet.append(wordnet_res["result"])
+    antonym_results["average"] = np.average(wordnet)
+    antonym_results_w2v["average"] = np.average(w2v)
+    antonym_results["std"] = np.std(wordnet)
+    antonym_results_w2v["std"] = np.std(w2v)
+    antonym_results["skew"] = skew(wordnet)
+    antonym_results_w2v["skew"] = skew(w2v)
+    antonym_results["kurtosis"] = kurtosis(wordnet)
+    antonym_results_w2v["kurtosis"] = kurtosis(w2v)
+
 
 
 
@@ -147,7 +190,7 @@ def get_verb_and_noun(lemmas):
     return [noun, verb]
 
 def create_table(name, rows):
-    with open(name, 'wt') as file:
+    with open(name, 'w', newline='') as file:
         writer = csv.writer(file)
         for row in rows:
             writer.writerow(row)
@@ -353,30 +396,50 @@ def get_popularity_table():
         table1.append(row)
     return table1
 
+def Get_Antonym_table():
+    table1 = [["Average wup", antonym_results["average"], "Std wup", antonym_results["std"], "Skew wup", antonym_results["skew"], "Kurtosis wup", antonym_results["kurtosis"]]]
+    table1.append(["Average w2v", antonym_results_w2v["average"], "Std w2v", antonym_results_w2v["std"], "Skew w2v", antonym_results_w2v["skew"], "Kurtosis w2v", antonym_results_w2v["kurtosis"]])
+    table1_headers = ["Word", "Antonym", "Similarity wup", "Similarity w2v"] 
+    table1.append(table1_headers)
+    for word in antonyms.keys():
+        results1 = antonym_results[word]["result"]
+        results2 = antonym_results_w2v[word]["result"]
+        antonym = antonyms[word]
+        row = [word]
+        row.append(antonym)
+        row.append(results1)
+        row.append(results2)
+        table1.append(row)
+    return table1
+
 if __name__ == "__main__":
     Read_Synonyms()
     Calculate_Wordnet_Similarity()
 
-    # # task1 results
-    # table1 = get_results_list(wordnet_results)
-    # create_table("wup_similarity.csv", table1)
+    # task1 results
+    table1 = get_results_list(wordnet_results)
+    create_table("wup_similarity.csv", table1)
 
-    # # Task 2
-    # Word2Vec_Similarity()
-    # table2 = get_results_list(word2vec_results)
-    # create_table("word2vec_similarity.csv", table2)
+    # Task 2
+    Word2Vec_Similarity()
+    table2 = get_results_list(word2vec_results)
+    create_table("word2vec_similarity.csv", table2)
 
-    # # Task 3
-    # Adverb_Similarity()
-    # table3 = get_adverb_table(adVerb_result)
-    # create_table("adverbs_task3.csv", table3)
+    # Task 3
+    Adverb_Similarity()
+    table3 = get_adverb_table(adVerb_result)
+    create_table("adverbs_task3.csv", table3)
 
-    # # Task 4
-    # Popularity_Similarity()
-    # table4 = get_popularity_table()
-    # create_table("popularity_table_task4.csv", table4)
+    # Task 4
+    Popularity_Similarity()
+    table4 = get_popularity_table()
+    create_table("popularity_table_task4.csv", table4)
 
     # Task 5
     Read_Antonyms()
     Calculate_Wordnet_Similarity_Antonyms()
-    print(antonym_results)
+    Word2Vec_Similarity_Antonyms()
+    Antonym_Results_Processing()
+    table5 = Get_Antonym_table()
+    create_table("antonym_table_task5.csv", table5)
+    
