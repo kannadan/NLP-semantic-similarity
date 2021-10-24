@@ -19,6 +19,9 @@ popularity_results = {}
 antonyms = {}
 antonym_results = {}
 antonym_results_w2v = {}
+antonym_pop_results = {}
+antonym_wn_sorted = []
+antonym_w2v_sorted = []
 
 def Read_Synonyms():
     with open('synonyms.txt') as f:
@@ -374,6 +377,86 @@ def Popularity_Similarity():
             popularity_results[word]["correlation"] = 0
     return
 
+def Antonym_Popularity():
+    words = brown.words()
+    save_data = True
+    try:
+        a_file = open("Antonym_popularity_data.pkl", "rb")
+        output = pickle.load(a_file)
+        global antonym_pop_results
+        antonym_pop_results = output
+        save_data = False
+    except:
+        print("no data found")
+    if save_data:
+        for word in antonyms.keys():
+            antonym_pop_results[word] = {"score": 0, "antonym": {"score": 0, "antonym": antonyms[word], "abs": None}}
+            antonym_pop_results[word]["score"] = get_popularity(words, word)
+            antonym_pop_results[word]["antonym"]["score"] = get_popularity(words, antonyms[word])
+            antonym_pop_results[word]["antonym"]["abs"] = abs(antonym_pop_results[word]["antonym"]["score"] - antonym_pop_results[word]["score"])
+            print(antonym_pop_results[word]["score"])
+            print(antonym_pop_results[word]["antonym"])
+        # delete pkl to recount scores
+        a_file = open("Antonym_popularity_data.pkl", "wb")
+        pickle.dump(antonym_pop_results, a_file)
+        a_file.close()
+
+def Antonym_Popular_Processed():
+    w2v = []
+    wordnet = []
+    for word in antonyms.keys():
+        wn = antonym_results[word]
+        vec = antonym_results_w2v[word]
+        pop = antonym_pop_results[word]
+        temp = wn
+        temp["score_main"] = pop["score"]
+        temp["score"] = pop["antonym"]["score"]
+        temp["main"] = word
+        temp["abs"] = pop["antonym"]["abs"]
+        if temp["result"] is not None:
+            wordnet.append(temp)
+        temp = vec
+        temp["score_main"] = pop["score"]
+        temp["score"] = pop["antonym"]["score"]
+        temp["main"] = word
+        temp["abs"] = pop["antonym"]["abs"]
+        if temp["result"] is not None:
+            w2v.append(temp)
+    wordnet = sorted(wordnet, key=lambda a: a["abs"])
+    w2v = sorted(w2v, key=lambda a: a["abs"])
+    global antonym_wn_sorted
+    global antonym_w2v_sorted
+    antonym_wn_sorted = wordnet
+    antonym_w2v_sorted = w2v
+    x = []
+    y = []
+    for item in wordnet:
+        x.append(item["result"])
+        y.append(item["abs"])
+    if len(x) == len(y) and len(y) > 1:
+        x = np.array(x)
+        y = np.array(y)
+        r = np.corrcoef(x,y)
+        # print(r)
+        antonym_pop_results["correlation_wn"] = r[0,1]
+    else:
+        antonym_pop_results["correlation_wn"] = 0
+    x = []
+    y = []
+    for item in w2v:
+        x.append(item["result"])
+        y.append(item["abs"])
+    if len(x) == len(y) and len(y) > 1:
+        x = np.array(x)
+        y = np.array(y)
+        r = np.corrcoef(x,y)
+        # print(r)
+        antonym_pop_results["correlation_w2v"] = r[0,1]
+    else:
+        antonym_pop_results["correlation_w2v"] = 0
+    
+    
+
 def get_popularity_table():
     table1_headers = ["Word", "Synonyms", "Average score", "StD", "Pearson correlation"] 
     table1 = [table1_headers]
@@ -412,28 +495,54 @@ def Get_Antonym_table():
         table1.append(row)
     return table1
 
+def Antonym_Pop_Table():
+    table1 = [["Pearson correlation wup", antonym_pop_results["correlation_wn"]]]
+    table1_headers = ["Word", "Popularity", "Antonym", "Popularity", "Abs", "Similarity wup"] 
+    table1.append(table1_headers)
+    for item in antonym_wn_sorted:
+        row = [item["main"]]
+        row.append(item["score_main"])
+        row.append(item["word"])
+        row.append (item["score"])
+        row.append(item["abs"])
+        row.append(item["result"])
+        table1.append(row)
+    table2 = [["Pearson correlation w2v", antonym_pop_results["correlation_w2v"]]]
+    table2_headers = ["Word", "Popularity", "Antonym", "Popularity", "Abs", "Similarity w2v"] 
+    table2.append(table1_headers)
+    for item in antonym_w2v_sorted:
+        row = [item["main"]]
+        row.append(item["score_main"])
+        row.append(item["word"])
+        row.append (item["score"])
+        row.append(item["abs"])
+        row.append(item["result"])
+        # print(item["main"])
+        table2.append(row)
+    return table1, table2
+
 if __name__ == "__main__":
     Read_Synonyms()
     Calculate_Wordnet_Similarity()
 
-    # task1 results
-    table1 = get_results_list(wordnet_results)
-    create_table("wup_similarity.csv", table1)
+    # # task1 results
+    # table1 = get_results_list(wordnet_results)
+    # create_table("wup_similarity.csv", table1)
 
-    # Task 2
-    Word2Vec_Similarity()
-    table2 = get_results_list(word2vec_results)
-    create_table("word2vec_similarity.csv", table2)
+    # # Task 2
+    # Word2Vec_Similarity()
+    # table2 = get_results_list(word2vec_results)
+    # create_table("word2vec_similarity.csv", table2)
 
-    # Task 3
-    Adverb_Similarity()
-    table3 = get_adverb_table(adVerb_result)
-    create_table("adverbs_task3.csv", table3)
+    # # Task 3
+    # Adverb_Similarity()
+    # table3 = get_adverb_table(adVerb_result)
+    # create_table("adverbs_task3.csv", table3)
 
-    # Task 4
-    Popularity_Similarity()
-    table4 = get_popularity_table()
-    create_table("popularity_table_task4.csv", table4)
+    # # Task 4
+    # Popularity_Similarity()
+    # table4 = get_popularity_table()
+    # create_table("popularity_table_task4.csv", table4)
 
     # Task 5
     Read_Antonyms()
@@ -443,3 +552,9 @@ if __name__ == "__main__":
     table5 = Get_Antonym_table()
     create_table("antonym_table_task5.csv", table5)
     
+    # Task 6
+    Antonym_Popularity()
+    Antonym_Popular_Processed()
+    (table6, table7) = Antonym_Pop_Table()
+    create_table("antonym_pop_wn_task6.csv", table6)
+    create_table("antonym_pop_w2v_task6.csv", table7)
