@@ -4,7 +4,6 @@ from nltk.corpus import wordnet_ic
 from gensim.models import Word2Vec
 from scipy import spatial
 import csv
-import numpy
 import pickle
 import numpy as np
 from scipy.stats import kurtosis
@@ -22,6 +21,8 @@ antonym_results_w2v = {}
 antonym_pop_results = {}
 antonym_wn_sorted = []
 antonym_w2v_sorted = []
+antonym_glove_sorted = []
+antonym_pop_glove_results = {}
 
 duos = {}
 duo_results = {}
@@ -29,6 +30,8 @@ duo_results_w2v = {}
 duo_pop_results = {}
 duo_wn_sorted = []
 duo_w2v_sorted = []
+
+embeddings_dict = {}
 
 def Read_Synonyms():
     with open('synonyms.txt') as f:
@@ -60,6 +63,17 @@ def Read_Antonyms():
             words[1] = words[1].split(",")[0]
             antonyms[words[0]] = words[1]
     return
+
+def Read_Glove():
+    with open("glove.42B.300d.txt", 'r', encoding="utf-8") as f:
+        for line in f:
+            values = line.split()
+            word = values[0]
+            vector = np.asarray(values[1:], "float32")
+            embeddings_dict[word] = vector
+
+def find_closest_embeddings(embedding):
+    return sorted(embeddings_dict.keys(), key=lambda word: spatial.distance.euclidean(embeddings_dict[word], embedding))
 
 def Read_Duos():
     with open('Duos.txt') as f:
@@ -186,6 +200,42 @@ def Word2Vec_Similarity_Duos():
             'result': res
         }
 
+def Glove_Similarity_Antonym():
+    glove = []
+    for word in antonyms.keys():
+        second = antonyms[word]
+        word_Vec = embeddings_dict[word] 
+        res = spatial.distance.cosine(word_Vec, embeddings_dict[second])
+        print(f'{word}:{second} - {res}')
+        vec = {
+            'word': second,
+            'result': res
+        }
+        pop = antonym_pop_results[word]
+        temp = vec
+        temp["score_main"] = pop["score"]
+        temp["score"] = pop["antonym"]["score"]
+        temp["main"] = word
+        temp["abs"] = pop["antonym"]["abs"]
+        if temp["result"] is not None:
+            glove.append(temp)    
+    glove = sorted(glove, key=lambda a: a["abs"])    
+    global antonym_glove_sorted    
+    antonym_glove_sorted = glove
+    x = []
+    y = []
+    for item in glove:
+        x.append(item["result"])
+        y.append(item["abs"])
+    if len(x) == len(y) and len(y) > 1:
+        x = np.array(x)
+        y = np.array(y)
+        r = np.corrcoef(x,y)        
+        antonym_pop_glove_results["correlation_glove"] = r[0,1]
+    else:
+        antonym_pop_glove_results["correlation_glove"] = 0
+
+
 def Antonym_Results_Processing():
     wordnet = []
     w2v = []
@@ -288,7 +338,7 @@ def get_results_list(result_dict):
         row.append(synonym_list)
         average = sum(result_list) / len(result_list)
         row.append(average)
-        std = numpy.std(result_list)
+        std = np.std(result_list)
         row.append(std)
         table1.append(row)
     return table1
@@ -326,9 +376,9 @@ def get_adverb_table(result_dict):
         row.append(average1)
         row.append(average2)
         row.append(average3)
-        std1 = numpy.std(result_list1)
-        std2 = numpy.std(result_list2)
-        std3 = numpy.std(result_list3)
+        std1 = np.std(result_list1)
+        std2 = np.std(result_list2)
+        std3 = np.std(result_list3)
         row.append(std1)
         row.append(std2)
         row.append(std3)
@@ -624,7 +674,7 @@ def get_popularity_table():
         row.append(synonym_list)
         average = sum(result_list) / len(result_list)
         row.append(average)
-        std = numpy.std(result_list)
+        std = np.std(result_list)
         row.append(std)
         row.append(results["correlation"])
         table1.append(row)
@@ -687,6 +737,20 @@ def Antonym_Pop_Table():
         # print(item["main"])
         table2.append(row)
     return table1, table2
+
+def Antonym_Pop_Glove_Table():
+    table1 = [["Pearson correlation glove", antonym_pop_glove_results["correlation_glove"]]]
+    table1_headers = ["Word", "Popularity", "Antonym", "Popularity", "Abs", "Similarity glove"] 
+    table1.append(table1_headers)
+    for item in antonym_glove_sorted:
+        row = [item["main"]]
+        row.append(item["score_main"])
+        row.append(item["word"])
+        row.append (item["score"])
+        row.append(item["abs"])
+        row.append(item["result"])
+        table1.append(row)
+    return table1
 
 def Duo_Pop_Table():
     table1 = [["Pearson correlation wup", duo_pop_results["correlation_wn"]]]
@@ -751,6 +815,13 @@ if __name__ == "__main__":
     (table6, table7) = Antonym_Pop_Table()
     create_table("antonym_pop_wn_task6.csv", table6)
     create_table("antonym_pop_w2v_task6.csv", table7)
+
+    #Task 7
+    Read_Glove()
+    print("READ GLOVE")
+    Glove_Similarity_Antonym()
+    table8 = Antonym_Pop_Glove_Table()
+    create_table("antonym_pop_glove_task7.csv", table8)
 
     # Task 8
     Read_Duos()
