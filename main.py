@@ -344,7 +344,7 @@ def get_results_list(result_dict):
     return table1
 
 def get_adverb_table(result_dict):
-    table1_headers = ["Word", "Synonyms_wup", "Synonyms_lin", "Synonyms_w2v" "Average score wup", "Average score lin", "Average score wv", "StD wup", "StD lin", "StD w2v"]
+    table1_headers = ["Word", "Synonyms_wup", "Synonyms_lin", "Synonyms_w2v", "Average score wup", "Average score lin", "Average score wv", "StD wup", "StD lin", "StD w2v"]
     table1 = [table1_headers]
     for word in result_dict.keys():
         results = result_dict[word]
@@ -784,12 +784,12 @@ if __name__ == "__main__":
 
     # task1 results
     table1 = get_results_list(wordnet_results)
-    create_table("wup_similarity.csv", table1)
+    create_table("wup_similarity_task1.csv", table1)
 
     # Task 2
     Word2Vec_Similarity()
     table2 = get_results_list(word2vec_results)
-    create_table("word2vec_similarity.csv", table2)
+    create_table("word2vec_similarity_task2.csv", table2)
 
     # Task 3
     Adverb_Similarity()
